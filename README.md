@@ -164,7 +164,7 @@ fit_surv = survfit(surv_path ~ 1, data = zero_suicide_dat_pathway_complete)
 fit_surv_one_year = summary(survfit(surv_path~ 1, data = zero_suicide_dat_pathway_complete), times = 12)
 fit_surv_one_year
 
-ggsurvplot(fit_surv, data = zero_suicide_dat_pathway_complete, risk.table = "abs_pct", break.time.by = c(6), surv.scale = "percent", title = "Pathway Survival Probablity", xlab = "Months", legend = "none", tables.y.text.col = FALSE)
+ggsurvplot(fit_surv, data = zero_suicide_dat_pathway_complete, risk.table = "abs_pct", break.time.by = c(3), surv.scale = "percent", title = "Pathway Survival Probablity from 4-2014 to 4-2019", xlab = "Months", legend = "none", tables.y.text.col = FALSE)
 
   
 
