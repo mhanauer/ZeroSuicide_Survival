@@ -17,6 +17,7 @@ library(MissMech)
 library(lubridate)
 library(survival)
 library(survminer)
+library(naniar)
 ```
 Load in data. Need to check variables of interest are doing ok.
 Check descriptives make sure nothing is out of bounds
@@ -28,9 +29,9 @@ setwd("P:/Evaluation/TN Lives Count_Writing/ZeroSuicide/CDC")
 cdc_rate = read.csv("cdc_rate.csv", header = TRUE)
 centerstone_cdc_pop = read.csv("centerstone_cdc_pop.csv", header = TRUE)
 
-zero_suicide_denom
-cdc_rate
-centerstone_cdc_pop
+#zero_suicide_denom
+#cdc_rate
+#centerstone_cdc_pop
 
 ```
 #######################
@@ -147,31 +148,61 @@ zero_suicide_dat_pathway = zero_suicide_dat
 head(zero_suicide_dat_pathway)
 zero_suicide_dat_pathway =  data.frame(death_date = zero_suicide_dat_pathway$death_date, gender = zero_suicide_dat_pathway$gender, current_path_enroll_date = zero_suicide_dat_pathway$current_path_enroll_date, age_at_death = zero_suicide_dat_pathway$age_at_death)
 zero_suicide_dat_pathway
-library(naniar)
+
 miss_var_summary(zero_suicide_dat_pathway)
 zero_suicide_dat_pathway_complete = na.omit(zero_suicide_dat_pathway) 
 zero_suicide_dat_pathway_complete$censor = rep(1, dim(zero_suicide_dat_pathway_complete)[1])
+### Get floor month and put everything on month scale
 zero_suicide_dat_pathway_complete$time_to_death =  zero_suicide_dat_pathway_complete$death_date-zero_suicide_dat_pathway_complete$current_path_enroll_date
-zero_suicide_dat_pathway_complete$time_to_death = 
-surv_path = Surv(zero_suicide_dat_pathway_complete$time_to_death, zero_suicide_dat_pathway_complete$censor)
+zero_suicide_dat_pathway_complete$time_to_death = zero_suicide_dat_pathway_complete$time_to_death / 30
 
+surv_path = Surv(zero_suicide_dat_pathway_complete$time_to_death, zero_suicide_dat_pathway_complete$censor)
+surv_path
 
 ```
 Try some survival with just those on the pathway
 ```{r}
 fit_surv = survfit(surv_path ~ 1, data = zero_suicide_dat_pathway_complete)
+surv_path
 
-fit_surv_one_year = summary(survfit(surv_path~ 1, data = zero_suicide_dat_pathway_complete), times = 12)
+fit_surv_one_year = summary(survfit(surv_path~ 1, data = zero_suicide_dat_pathway_complete), times = 365.25)
 fit_surv_one_year
 
-ggsurvplot(fit_surv, data = zero_suicide_dat_pathway_complete, risk.table = "abs_pct", break.time.by = c(3), surv.scale = "percent", title = "Pathway Survival Probablity from 4-2014 to 4-2019", xlab = "Months", legend = "none", tables.y.text.col = FALSE)
+#ggsurvplot(fit_surv, data = zero_suicide_dat_pathway_complete, break.time.by = c(90), surv.scale = "percent", title = "Pathway Survival Probablity from 4-2014 to 4-2019", xlab = "Days", legend = "none")
+ggsurvplot(fit_surv, data = zero_suicide_dat_pathway_complete, break.time.by = c(3), surv.scale = "percent", title = "Pathway Survival Probablity from 4-2014 to 4-2019", xlab = "Months", legend = "none")
 
-  
 
 ### I want plot the number probability of death at one year
 
 
 ```
+Ok no get the percentage of death by 3 months for table
+```{r}
+
+table_death = data.frame(month_to_death = zero_suicide_dat_pathway_complete$time_to_death)
+range(table_death$month_to_death)
+table_death$month_to_death
+table_death$month = ifelse(table_death$month_to_death <= 3, "0 to 3 months", ifelse(table_death$month_to_death <= 6, "3+ to 6 months", ifelse(table_death$month_to_death <= 9, "6+ to 9 months", ifelse(table_death$month_to_death <= 12, "9+ to 12 months", ifelse(table_death$month_to_death <= 15, "12+ to 15 months", ifelse(table_death <= 18, "15+ to 18 months", ifelse(table_death$month_to_death <= 21, "18+ to 21 months", ifelse(table_death$month_to_death <= 24, "21+ to 24 months", ifelse(table_death$month_to_death > 24, "2+ years", "Wrong")))))))))
+table_death = describe(table_death$month)
+table_death = table_death$Factor$x
+table_death = t(table_death)
+write.csv(table_death, "table_death.csv")
+table_death = read.csv("table_death.csv", header = TRUE)
+colnames(table_death)[1] = "Death period"
+table_death
+cumsum(table_death$Percent)
+table_death = table_death[c(1:4,7,8,9,6,5),]
+table_death$Percent = round(table_death$Percent, 2)
+table_death$cummulative_percent = cumsum(table_death$Percent)
+table_death$cummulative_sum = cumsum(table_death$Count)
+table_death$Percent = paste0(table_death$Percent,"", "%")
+table_death$cummulative_percent = paste0(table_death$cummulative_percent,"", "%")
+table_death
+write.csv(table_death, "table_death.csv", row.names = FALSE)
+```
+
+
+
 Test if there is a difference for age (may need dicot this) and or gender
 ```{r}
 head(zero_suicide_dat_pathway_complete)
@@ -184,5 +215,3 @@ describe.factor(zero_suicide_dat_pathway_complete$gender)
 fix_cox = coxph(surv_path ~ age_at_death + gender, data = zero_suicide_dat_pathway_complete)
 summary(fix_cox)
 ```
-
-
